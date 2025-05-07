@@ -9,7 +9,7 @@ st.set_page_config(
 )
 
 # --- Main Application ---
-st.title("App")
+st.title("APP de los bots")
 
 
 # Check if the user is already logged in (using session state)
