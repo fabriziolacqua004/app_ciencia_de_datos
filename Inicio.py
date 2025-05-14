@@ -66,3 +66,5 @@ if st.session_state.get("logged_in", False):
 
     st.info(f"Sesión iniciada como {st.session_state['role']} (ID={st.session_state['user_id']})")
     # Aquí agregas tus secciones de gestión: publicaciones, confirmaciones, etc.
+
+#hola
