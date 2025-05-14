@@ -2,8 +2,16 @@
 import streamlit as st
 from functions import execute_query, add_vendedor, add_comprador
 
-st.set_page_config(page_title="Kiosco App", page_icon="🛒", layout="centered")
-st.title("APLICACION")
+st.set_page_config(page_title="PEDICS", page_icon="🦿", layout="centered")
+st.title("Homepage - Bienvenido a Pedics, la tienda de procuctos ortopedicos mas grande del pais")
+# Cambiar color de fondo y texto con CSS
+st.markdown("""
+    <style>
+        .stApp {
+            background-color: #D6C9C9;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
 # 1) Elegir acción
 action = st.radio("¿Qué deseas hacer?", ["Crear cuenta", "Iniciar sesión"])
