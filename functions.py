@@ -99,3 +99,5 @@ def add_comprador(nombre_y_apellido, ubicacion, telefono, mail, usuario, contras
     """
     params = (nombre_y_apellido, ubicacion, telefono, mail, usuario, contraseña)
     return execute_query(sql, params=params, is_select=False)
+
+#hola
