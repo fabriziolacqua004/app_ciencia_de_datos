@@ -100,12 +100,22 @@ def add_comprador(nombre_y_apellido, ubicacion, telefono, mail, usuario, contras
     params = (nombre_y_apellido, ubicacion, telefono, mail, usuario, contraseña)
     return execute_query(sql, params=params, is_select=False)
 
-def add_publicacion(vendedor_id, titulo, descripcion, tipo, precio):
+def add_publicacion(id_producto, id_vendedor, titulo, descripcion, tipo,
+                      estado, precio, fecha_de_creacion, link_acceso, venta_alquiler):
     sql = """
-      INSERT INTO public.publicaciones
-        (vendedor_id, titulo, descripcion, tipo, precio)
-      VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO publicaciones (
+            id_producto, id_vendedor, titulo, descripcion, tipo, estado,
+            precio, fecha_de_creacion, link_acceso, venta_alquiler
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
-    return execute_query(sql, params=(vendedor_id, titulo, descripcion, tipo, precio), is_select=False)
+    params = (
+        id_producto, id_vendedor, titulo, descripcion, tipo,
+        estado, precio, fecha_de_creacion, link_acceso, venta_alquiler
+    )
+    return execute_query(sql, params=params, is_select=False)
 
-#hola
+def get_productos():
+    sql = "SELECT id, nombre FROM productos"
+    df = execute_query(sql, is_select=True)
+    return df.to_dict("records")
+
