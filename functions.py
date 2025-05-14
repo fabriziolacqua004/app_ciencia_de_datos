@@ -107,3 +107,5 @@ def add_publicacion(vendedor_id, titulo, descripcion, tipo, precio):
       VALUES (%s, %s, %s, %s, %s)
     """
     return execute_query(sql, params=(vendedor_id, titulo, descripcion, tipo, precio), is_select=False)
+
+#hola

@@ -40,3 +40,5 @@ if __name__ == "__main__":
         st.error("❌ Acceso denegado. Inicia sesión como Comprador.")
     else:
         main()
+
+#hola
