@@ -119,3 +119,23 @@ def get_productos():
     df = execute_query(sql, is_select=True)
     return df.to_dict("records")
 
+def update_publicacion_activo(id_publicacion: int, activo: int) -> bool:
+    sql = """
+       UPDATE public.publicaciones
+       SET activo = %s
+       WHERE id = %s
+    """
+    return execute_query(sql, params=(activo, id_publicacion), is_select=False)
+
+def add_confirmacion(id_publicacion: int,
+                     id_comprador: int,
+                     metodo_pago: str,
+                     vigencia: str) -> bool:
+    sql = """
+       INSERT INTO public.confirmaciones
+         (id_publicacion, id_comprador, metodo_de_pago, vigencia)
+       VALUES (%s, %s, %s, %s)
+    """
+    return execute_query(sql,
+                         params=(id_publicacion, id_comprador, metodo_pago, vigencia),
+                         is_select=False)

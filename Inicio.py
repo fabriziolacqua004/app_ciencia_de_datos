@@ -1,23 +1,83 @@
 import streamlit as st
+import base64
 from functions import execute_query, add_vendedor, add_comprador
 
-st.set_page_config(page_title="Kiosco App", page_icon="🛒", layout="centered")
-st.title("APLICACIÓN")
+# Convertir imagen local a base64
+def set_background(image_path):
+    with open(image_path, "rb") as f:
+        data = f.read()
+    encoded = base64.b64encode(data).decode()
+    css = f"""
+    <style>
+        .stApp {{
+            background-image: url("data:image/png;base64,{encoded}");
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+        }}
 
-# 1) Elegir acción
+        .main > div {{
+            background-color: rgba(30, 30, 47, 0.88);
+            padding: 2rem;
+            border-radius: 15px;
+        }}
+
+        .stTextInput>div>div>input,
+        .stTextArea>div>textarea {{
+            background-color: #2e2e3e;
+            color: white;
+            border-radius: 8px;
+            padding: 0.5em;
+        }}
+
+        .stRadio>div {{
+            color: #ddd;
+        }}
+
+        .stButton>button {{
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 8px;
+            padding: 0.5em 1em;
+            font-weight: bold;
+        }}
+
+        .stForm {{
+            background-color: #2b2b3c;
+            padding: 2em;
+            border-radius: 12px;
+            box-shadow: 0px 0px 15px #00000055;
+        }}
+
+        h1, h2, h3, h4, h5, h6, label {{
+            color: #f5f5f5;
+        }}
+    </style>
+    """
+    st.markdown(css, unsafe_allow_html=True)
+
+# Llamar función con ruta a tu imagen
+set_background("images/fondo.png")
+
+# Título principal
+st.title("🦽 Marketplace Ortopédico")
+st.subheader("Bienvenido a la plataforma de compra y venta de productos ortopédicos.")
+
+# Elegir acción
 action = st.radio("¿Qué deseas hacer?", ["Crear cuenta", "Iniciar sesión"])
 
 if action == "Crear cuenta":
     role = st.radio("¿Eres vendedor o comprador?", ["Vendedor", "Comprador"])
     with st.form("signup_form"):
-        nombre       = st.text_input("Nombre y Apellido")
-        ubicacion    = st.text_input("Ubicación")
-        telefono     = st.text_input("Teléfono")
-        mail         = st.text_input("Mail")
-        usuario      = st.text_input("Nombre de Usuario")
-        contraseña   = st.text_input("Contraseña", type="password")
+        st.markdown("### 📝 Formulario de Registro")
+        nombre       = st.text_input("👤 Nombre y Apellido")
+        ubicacion    = st.text_input("📍 Ubicación")
+        telefono     = st.text_input("📞 Teléfono")
+        mail         = st.text_input("📧 Mail")
+        usuario      = st.text_input("🆔 Nombre de Usuario")
+        contraseña   = st.text_input("🔒 Contraseña", type="password")
 
-        if st.form_submit_button("Registrarme"):
+        if st.form_submit_button("✅ Registrarme"):
             if all([nombre, ubicacion, telefono, mail, usuario, contraseña]):
                 if role == "Vendedor":
                     success = add_vendedor(nombre, ubicacion, telefono, mail, usuario, contraseña)
@@ -25,19 +85,20 @@ if action == "Crear cuenta":
                     success = add_comprador(nombre, ubicacion, telefono, mail, usuario, contraseña)
 
                 if success:
-                    st.success("✅ Cuenta creada. Ahora inicia sesión.")
+                    st.success("🎉 Cuenta creada con éxito. Ahora puedes iniciar sesión.")
                 else:
-                    st.error("❌ Error al crear la cuenta. Revisa los mensajes de la DB.")
+                    st.error("❌ Error al crear la cuenta. Revisa los datos ingresados.")
             else:
-                st.error("⚠️ Completa todos los campos.")
+                st.error("⚠️ Por favor, completa todos los campos.")
 
-else:  # Iniciar sesión
+else:
     role = st.radio("¿Inicias como vendedor o comprador?", ["Vendedor", "Comprador"])
     with st.form("login_form"):
-        usuario    = st.text_input("Usuario")
-        contraseña = st.text_input("Contraseña", type="password")
+        st.markdown("### 🔐 Iniciar Sesión")
+        usuario    = st.text_input("🆔 Usuario")
+        contraseña = st.text_input("🔒 Contraseña", type="password")
 
-        if st.form_submit_button("Login"):
+        if st.form_submit_button("🔓 Ingresar"):
             if usuario and contraseña:
                 table = "vendedores" if role == "Vendedor" else "compradores"
                 sql = f"""
@@ -51,20 +112,17 @@ else:  # Iniciar sesión
                     st.session_state["logged_in"] = True
                     st.session_state["role"]      = role
                     st.session_state["user_id"]   = int(df.loc[0, "id"])
-                    st.success(f"Bienvenido, {usuario} ({role})")
+                    st.success(f"🙌 Bienvenido, {usuario} ({role})")
                 else:
                     st.error("❌ Usuario o contraseña incorrectos.")
             else:
-                st.error("⚠️ Ingresa usuario y contraseña.")
+                st.error("⚠️ Por favor, completa ambos campos.")
 
-# 3) Si está logueado, muestro la app principal
+# Si está logueado
 if st.session_state.get("logged_in", False):
-    st.sidebar.title("Menú")
+    st.sidebar.title("📋 Menú")
     if st.sidebar.button("Cerrar sesión"):
         st.session_state.clear()
         st.experimental_rerun()
 
-    st.info(f"Sesión iniciada como {st.session_state['role']} (ID={st.session_state['user_id']})")
-    # Aquí agregas tus secciones de gestión: publicaciones, confirmaciones, etc.
-
-
+    st.info(f"🔓 Sesión iniciada como **{st.session_state['role']}** (ID: `{st.session_state['user_id']}`)")

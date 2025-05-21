@@ -1,4 +1,3 @@
-# vendedor.py
 import streamlit as st
 from functions import get_productos, add_publicacion
 import datetime
@@ -39,4 +38,3 @@ with st.form("publicar_form"):
                 st.success("Publicación creada correctamente.")
             else:
                 st.error("Error al crear la publicación.")
-
