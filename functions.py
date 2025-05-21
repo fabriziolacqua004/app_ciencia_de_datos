@@ -100,12 +100,42 @@ def add_comprador(nombre_y_apellido, ubicacion, telefono, mail, usuario, contras
     params = (nombre_y_apellido, ubicacion, telefono, mail, usuario, contraseña)
     return execute_query(sql, params=params, is_select=False)
 
-def add_publicacion(vendedor_id, titulo, descripcion, tipo, precio):
+def add_publicacion(id_producto, id_vendedor, titulo, descripcion, tipo,
+                      estado, precio, fecha_de_creacion, link_acceso, venta_alquiler):
     sql = """
-      INSERT INTO public.publicaciones
-        (vendedor_id, titulo, descripcion, tipo, precio)
-      VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO publicaciones (
+            id_producto, id_vendedor, titulo, descripcion, tipo, estado,
+            precio, fecha_de_creacion, link_acceso, venta_alquiler
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
-    return execute_query(sql, params=(vendedor_id, titulo, descripcion, tipo, precio), is_select=False)
+    params = (
+        id_producto, id_vendedor, titulo, descripcion, tipo,
+        estado, precio, fecha_de_creacion, link_acceso, venta_alquiler
+    )
+    return execute_query(sql, params=params, is_select=False)
 
-#hola
+def get_productos():
+    sql = "SELECT id, nombre FROM productos"
+    df = execute_query(sql, is_select=True)
+    return df.to_dict("records")
+
+def update_publicacion_activo(id_publicacion: int, activo: int) -> bool:
+    sql = """
+       UPDATE public.publicaciones
+       SET activo = %s
+       WHERE id = %s
+    """
+    return execute_query(sql, params=(activo, id_publicacion), is_select=False)
+
+def add_confirmacion(id_publicacion: int,
+                     id_comprador: int,
+                     metodo_pago: str,
+                     vigencia: str) -> bool:
+    sql = """
+       INSERT INTO public.confirmaciones
+         (id_publicacion, id_comprador, metodo_de_pago, vigencia)
+       VALUES (%s, %s, %s, %s)
+    """
+    return execute_query(sql,
+                         params=(id_publicacion, id_comprador, metodo_pago, vigencia),
+                         is_select=False)
