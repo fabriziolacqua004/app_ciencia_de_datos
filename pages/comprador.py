@@ -4,7 +4,7 @@ import streamlit as st
 from functions import execute_query
 
 def main():
-    st.title("📋 Publicaciones disponibles")
+    st.title("📋 Publicaciones")
 
     # 1) Traer todas las publicaciones
     # Asumo que tu tabla se llama `publicaciones` con columnas:
