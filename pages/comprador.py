@@ -1,20 +1,24 @@
 import streamlit as st
 from functions import execute_query, clean_expired_rentals
 from datetime import datetime
+import webbrowser
 
+# Sidebar
 with st.sidebar:
     if st.button("🚪 Cerrar sesión"):
         st.session_state.clear()
         st.switch_page('Inicio.py')  
 
+# Verificar sesión
 if not st.session_state.get('logged_in'):
     st.error("❌ Debes iniciar sesión primero.")
     st.stop()
 
-if st.session_state['role'] != 'Comprador':  # en vendedor.py
+if st.session_state['role'] != 'Comprador':
     st.error("❌ Acceso solo para Compradores.")
     st.stop()
-# Limpiar alquileres expirados al cargar la página
+
+# Limpiar alquileres expirados
 clean_expired_rentals()
 
 st.title("📋 Publicaciones")
@@ -30,7 +34,7 @@ tipo_seleccionado = st.selectbox("Filtrar por tipo", ["Todos", "Venta", "Alquile
 # Traer datos
 sql = """
     SELECT p.id, p.titulo, p.descripcion, p.tipo, p.precio, p.estado,
-           c.descripcion AS categoria, p.venta_alquiler
+           c.descripcion AS categoria, p.venta_alquiler, p.id_vendedor, p.link_acceso
     FROM publicaciones p
     JOIN productos pr ON p.id_producto = pr.id
     JOIN categoria c ON pr.id_categoria = c.id
@@ -50,15 +54,21 @@ if df.empty:
     st.info("No hay publicaciones disponibles.")
     st.stop()
 
+# Mostrar publicaciones
 for _, pub in df.iterrows():
-    action = "Comprar" if pub["venta_alquiler"].lower() == "venta" else "Alquilar"
     with st.expander(f"{pub['titulo']}  —  ${pub['precio']} ({pub['venta_alquiler']})"):
         st.write(f"**Descripción:** {pub['descripcion']}")
         st.write(f"**Categoría:** {pub['categoria']}")
         st.write(f"**Estado:** {pub['estado']}")
-        if st.button(f"{action} ID {pub['id']}", key=f"btn_{pub['id']}"):
-            st.session_state['transaccion'] = {'pub_id': pub['id'], 'tipo': pub['venta_alquiler']}
-            if pub['venta_alquiler'].lower() == 'venta':
-                st.switch_page('pages/_confirmar_compra.py')
-            else:
-                st.switch_page('pages/_confirmar_alquiler.py')
+
+        if pub["id_vendedor"] in [1, 2, 3]:
+            if st.button(f"🔗 Visitar link (ID {pub['id']})", key=f"link_{pub['id']}"):
+                webbrowser.open_new_tab(pub["link_acceso"])
+        else:
+            accion = "Comprar" if pub["venta_alquiler"].lower() == "venta" else "Alquilar"
+            if st.button(f"{accion} ID {pub['id']}", key=f"btn_{pub['id']}"):
+                st.session_state['transaccion'] = {'pub_id': pub['id'], 'tipo': pub['venta_alquiler']}
+                if pub['venta_alquiler'].lower() == 'venta':
+                    st.switch_page('pages/_confirmar_compra.py')
+                else:
+                    st.switch_page('pages/_confirmar_alquiler.py')
