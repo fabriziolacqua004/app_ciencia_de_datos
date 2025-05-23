@@ -60,7 +60,6 @@ def execute_query(query, params=None, conn=None, is_select=True):
         return result
 
     except Exception as e:
-        # Muestra el error real en Streamlit para depurar
         st.error(f"DB error: {e}")
         if conn and not is_select:
             conn.rollback()
@@ -100,10 +99,11 @@ def add_comprador(nombre_y_apellido, ubicacion, telefono, mail, usuario, contras
     params = (nombre_y_apellido, ubicacion, telefono, mail, usuario, contraseña)
     return execute_query(sql, params=params, is_select=False)
 
+
 def add_publicacion(id_producto, id_vendedor, titulo, descripcion, tipo,
-                      estado, precio, fecha_de_creacion, link_acceso, venta_alquiler):
+                    estado, precio, fecha_de_creacion, link_acceso, venta_alquiler):
     sql = """
-        INSERT INTO publicaciones (
+        INSERT INTO public.publicaciones (
             id_producto, id_vendedor, titulo, descripcion, tipo, estado,
             precio, fecha_de_creacion, link_acceso, venta_alquiler
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -114,28 +114,62 @@ def add_publicacion(id_producto, id_vendedor, titulo, descripcion, tipo,
     )
     return execute_query(sql, params=params, is_select=False)
 
+
 def get_productos():
-    sql = "SELECT id, nombre FROM productos"
+    sql = "SELECT id, nombre FROM public.productos"
     df = execute_query(sql, is_select=True)
     return df.to_dict("records")
+
 
 def update_publicacion_activo(id_publicacion: int, activo: int) -> bool:
     sql = """
        UPDATE public.publicaciones
-       SET activo = %s
+       SET activoinactivo = %s
        WHERE id = %s
     """
     return execute_query(sql, params=(activo, id_publicacion), is_select=False)
 
+
+def clean_expired_rentals():
+    """
+    Borra confirmaciones expiradas (fecha_confirmacion + vigencia días < NOW)
+    y reactiva las publicaciones correspondientes.
+    """
+    # 1) Seleccionar publicaciones expiradas
+    sql_select = """
+        SELECT id_publicacion
+        FROM public.confirmaciones
+        WHERE fecha_confirmacion + (vigencia * INTERVAL '1 day') < NOW()
+    """
+    df = execute_query(sql_select, is_select=True)
+    if df.empty:
+        return True
+
+    ids = tuple(df['id_publicacion'].tolist())
+    # 2) Borrar confirmaciones expiradas
+    sql_delete = "DELETE FROM public.confirmaciones WHERE id_publicacion IN %s"
+    execute_query(sql_delete, params=(ids,), is_select=False)
+    # 3) Reactivar publicaciones
+    sql_update = "UPDATE public.publicaciones SET activoinactivo = 1 WHERE id IN %s"
+    execute_query(sql_update, params=(ids,), is_select=False)
+    return True
+
+
 def add_confirmacion(id_publicacion: int,
                      id_comprador: int,
                      metodo_pago: str,
-                     vigencia: str) -> bool:
+                     vigencia: int | None) -> bool:
+    """
+    Inserta una confirmación con:
+      - vigencia: número de días para alquiler, o None para venta permanente.
+    """
     sql = """
        INSERT INTO public.confirmaciones
          (id_publicacion, id_comprador, metodo_de_pago, vigencia)
        VALUES (%s, %s, %s, %s)
     """
-    return execute_query(sql,
-                         params=(id_publicacion, id_comprador, metodo_pago, vigencia),
-                         is_select=False)
+    return execute_query(
+        sql,
+        params=(id_publicacion, id_comprador, metodo_pago, vigencia),
+        is_select=False
+    )

@@ -2,6 +2,19 @@ import streamlit as st
 from functions import get_productos, add_publicacion
 import datetime
 
+with st.sidebar:
+    if st.button("🚪 Cerrar sesión"):
+        st.session_state.clear()
+        st.switch_page('Inicio.py')  # o el nombre de tu script principal sin carpeta ni ".py"
+
+if not st.session_state.get('logged_in'):
+    st.error("❌ Debes iniciar sesión primero.")
+    st.stop()
+
+if st.session_state['role'] != 'Vendedor':  # en vendedor.py
+    st.error("❌ Acceso solo para vendedores.")
+    st.stop()
+
 st.title("Publicar nuevo producto")
 
 if "user_id" not in st.session_state or st.session_state.get("role") != "Vendedor":

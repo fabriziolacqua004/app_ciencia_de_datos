@@ -1,63 +1,64 @@
 import streamlit as st
-from functions import execute_query
+from functions import execute_query, clean_expired_rentals
 from datetime import datetime
 
-def main():
-    st.title("📋 Publicaciones")
+with st.sidebar:
+    if st.button("🚪 Cerrar sesión"):
+        st.session_state.clear()
+        st.switch_page('Inicio.py')  
 
-    # Filtros
-    categorias = execute_query("SELECT id, descripcion FROM categoria", is_select=True)
-    categoria_dict = dict(zip(categorias["descripcion"], categorias["id"]))
-    categoria_seleccionada = st.selectbox("Filtrar por categoría", ["Todas"] + list(categoria_dict.keys()))
+if not st.session_state.get('logged_in'):
+    st.error("❌ Debes iniciar sesión primero.")
+    st.stop()
 
-    estado_seleccionado = st.selectbox("Filtrar por estado", ["Todos", "Nuevo", "Usado"])
-    tipo_seleccionado = st.selectbox("Filtrar por tipo", ["Todos", "Venta", "Alquiler"])
+if st.session_state['role'] != 'Comprador':  # en vendedor.py
+    st.error("❌ Acceso solo para Compradores.")
+    st.stop()
+# Limpiar alquileres expirados al cargar la página
+clean_expired_rentals()
 
-    sql = """
-        SELECT p.id, p.titulo, p.descripcion, p.tipo, p.precio, p.estado, c.descripcion as categoria
-        FROM publicaciones p
-        JOIN productos pr ON p.id_producto = pr.id
-        JOIN categoria c ON pr.id_categoria = c.id
-        WHERE p.activoinactivo = 1
-    """
+st.title("📋 Publicaciones")
 
-    if categoria_seleccionada != "Todas":
-        sql += f" AND c.id = {categoria_dict[categoria_seleccionada]}"
-    if estado_seleccionado != "Todos":
-        sql += f" AND LOWER(p.estado) = LOWER('{estado_seleccionado}')"
-    if tipo_seleccionado != "Todos":
-        sql += f" AND LOWER(p.tipo) = LOWER('{tipo_seleccionado}')"
+# Filtros
+categorias = execute_query("SELECT id, descripcion FROM categoria", is_select=True)
+categoria_dict = dict(zip(categorias["descripcion"], categorias["id"]))
+categoria_seleccionada = st.selectbox("Filtrar por categoría", ["Todas"] + list(categoria_dict.keys()))
 
-    sql += " ORDER BY p.id DESC"
+estado_seleccionado = st.selectbox("Filtrar por estado", ["Todos", "Nuevo", "Usado"])
+tipo_seleccionado = st.selectbox("Filtrar por tipo", ["Todos", "Venta", "Alquiler"])
 
-    df = execute_query(sql, is_select=True)
+# Traer datos
+sql = """
+    SELECT p.id, p.titulo, p.descripcion, p.tipo, p.precio, p.estado,
+           c.descripcion AS categoria, p.venta_alquiler
+    FROM publicaciones p
+    JOIN productos pr ON p.id_producto = pr.id
+    JOIN categoria c ON pr.id_categoria = c.id
+    WHERE p.activoinactivo = 1
+"""
+if categoria_seleccionada != "Todas":
+    sql += f" AND c.id = {categoria_dict[categoria_seleccionada]}"
+if estado_seleccionado != "Todos":
+    sql += f" AND LOWER(p.estado) = LOWER('{estado_seleccionado}')"
+if tipo_seleccionado != "Todos":
+    sql += f" AND LOWER(p.venta_alquiler) = LOWER('{tipo_seleccionado}')"
+sql += " ORDER BY p.id DESC"
 
-    if df.empty:
-        st.info("No hay publicaciones disponibles.")
-        return
+df = execute_query(sql, is_select=True)
 
-    for _, pub in df.iterrows():
-        with st.expander(f"{pub['titulo']}  —  ${pub['precio']} ({pub['tipo']})"):
-            st.write(f"**Descripción:** {pub['descripcion']}")
-            st.write(f"**Categoría:** {pub['categoria']}")
-            st.write(f"**Estado:** {pub['estado']}")
-            
-            if pub["tipo"].lower() == "alquiler":
-                if st.button(f"Alquilar ID {pub['id']}", key=f"alq_{pub['id']}"):
-                    st.success("✔️ Has solicitado el alquiler.")
+if df.empty:
+    st.info("No hay publicaciones disponibles.")
+    st.stop()
+
+for _, pub in df.iterrows():
+    action = "Comprar" if pub["venta_alquiler"].lower() == "venta" else "Alquilar"
+    with st.expander(f"{pub['titulo']}  —  ${pub['precio']} ({pub['venta_alquiler']})"):
+        st.write(f"**Descripción:** {pub['descripcion']}")
+        st.write(f"**Categoría:** {pub['categoria']}")
+        st.write(f"**Estado:** {pub['estado']}")
+        if st.button(f"{action} ID {pub['id']}", key=f"btn_{pub['id']}"):
+            st.session_state['transaccion'] = {'pub_id': pub['id'], 'tipo': pub['venta_alquiler']}
+            if pub['venta_alquiler'].lower() == 'venta':
+                st.switch_page('pages/_confirmar_compra.py')
             else:
-                if st.button(f"Comprar ID {pub['id']}", key=f"comp_{pub['id']}"):
-                    update_sql = f"UPDATE publicaciones SET activoinactivo = 0 WHERE id = {pub['id']}"
-                    execute_query(update_sql, is_select=False)
-
-                    st.session_state["compra_iniciada"] = True
-                    st.session_state["compra_pub_id"] = pub["id"]
-                    st.session_state["compra_tiempo_inicio"] = datetime.now()
-
-                    st.switch_page("pages/confirmar_compra.py")
-
-if __name__ == "__main__":
-    if not st.session_state.get("logged_in") or st.session_state.get("role") != "Comprador":
-        st.error("❌ Acceso denegado. Inicia sesión como Comprador.")
-    else:
-        main()
+                st.switch_page('pages/_confirmar_alquiler.py')
