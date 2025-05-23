@@ -101,16 +101,18 @@ def add_comprador(nombre_y_apellido, ubicacion, telefono, mail, usuario, contras
 
 
 def add_publicacion(id_producto, id_vendedor, titulo, descripcion, tipo,
-                    estado, precio, fecha_de_creacion, link_acceso, venta_alquiler):
+                    estado, precio, fecha_de_creacion, link_acceso, venta_alquiler,
+                    activoinactivo=1):  # valor por defecto a 1
     sql = """
         INSERT INTO public.publicaciones (
             id_producto, id_vendedor, titulo, descripcion, tipo, estado,
-            precio, fecha_de_creacion, link_acceso, venta_alquiler
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            precio, fecha_de_creacion, link_acceso, venta_alquiler, activoinactivo
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     params = (
         id_producto, id_vendedor, titulo, descripcion, tipo,
-        estado, precio, fecha_de_creacion, link_acceso, venta_alquiler
+        estado, precio, fecha_de_creacion, link_acceso, venta_alquiler,
+        activoinactivo
     )
     return execute_query(sql, params=params, is_select=False)
 
