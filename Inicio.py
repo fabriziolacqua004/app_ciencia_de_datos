@@ -5,8 +5,12 @@ from functions import execute_query, add_vendedor, add_comprador
 # Ocultar menú lateral y selector de páginas
 st.markdown("""
     <style>
-      #MainMenu {visibility: hidden;}
-      .css-1lsmgbg.egzxvld3 {visibility: hidden;}  /* Oculta selector de páginas */
+      /* Oculta el menú de hamburguesa */
+      #MainMenu {visibility: hidden !important;}
+      /* Oculta la navegación de páginas en la cabecera */
+      nav[aria-label="Page navigation"] {display: none !important;}
+      /* Oculta la lista de páginas en la sidebar */
+      [data-testid="stSidebarNav"] {display: none !important;}
     </style>
 """, unsafe_allow_html=True)
 
