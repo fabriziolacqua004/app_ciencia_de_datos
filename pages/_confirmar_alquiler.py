@@ -63,7 +63,7 @@ if st.button("Confirmar alquiler"):
         add_confirmacion(pub_id, st.session_state['user_id'], metodo, int(dias))
         # b) Marcar la publicación como inactiva (ya alquilada)
         execute_query(
-            "UPDATE publicaciones SET activoinactivo = 1 WHERE id = %s",
+            "UPDATE publicaciones SET activoinactivo = 0 WHERE id = %s",
             params=(pub_id,), is_select=False
         )
         # c) Limpiar el estado de sesión para no mantener “transaccion”

@@ -3,6 +3,9 @@ from functions import execute_query, clean_expired_rentals
 from datetime import datetime
 import webbrowser
 
+# ——————————————————————————————————————————————————————————
+# Estilos: ocultar menú lateral, navegación, etc.
+# ——————————————————————————————————————————————————————————
 st.markdown("""
     <style>
       /* Oculta el menú de hamburguesa */
@@ -14,28 +17,37 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# ——————————————————————————————————————————————————————————
 # Sidebar – Cerrar sesión
+# ——————————————————————————————————————————————————————————
 with st.sidebar:
     if st.button("🚪 Cerrar sesión"):
         st.session_state.clear()
-        st.switch_page('Inicio.py')
+        st.switch_page("Inicio.py")
 
+# ——————————————————————————————————————————————————————————
 # Verificar sesión y rol
-if not st.session_state.get('logged_in'):
+# ——————————————————————————————————————————————————————————
+if not st.session_state.get("logged_in"):
     st.error("❌ Debes iniciar sesión primero.")
     st.stop()
-if st.session_state['role'] != 'Comprador':
+if st.session_state.get("role") != "Comprador":
     st.error("❌ Acceso solo para Compradores.")
     st.stop()
 
-# Limpiar alquileres expirados
+# ——————————————————————————————————————————————————————————
+# Limpiar confirmaciones (alquileres que hayan expirado) y reactivar publicaciones
+# ——————————————————————————————————————————————————————————
 clean_expired_rentals()
 
 st.title("📋 Publicaciones")
 
-# Filtros
+# ——————————————————————————————————————————————————————————
+# Filtros disponibles
+# ——————————————————————————————————————————————————————————
 categorias = execute_query("SELECT id, descripcion FROM categoria", is_select=True)
 categoria_dict = dict(zip(categorias["descripcion"], categorias["id"]))
+
 categoria_seleccionada = st.selectbox(
     "Filtrar por categoría",
     ["Todas"] + list(categoria_dict.keys())
@@ -43,14 +55,28 @@ categoria_seleccionada = st.selectbox(
 estado_seleccionado = st.selectbox("Filtrar por estado", ["Todos", "Nuevo", "Usado"])
 tipo_seleccionado   = st.selectbox("Filtrar por tipo", ["Todos", "Venta", "Alquiler"])
 
+# ——————————————————————————————————————————————————————————
 # Ordenamientos
+# ——————————————————————————————————————————————————————————
 precio_orden = st.selectbox("Filtrar por precio", ["Ninguno", "Menor a Mayor", "Mayor a Menor"], index=0)
 alfabetico   = st.checkbox("Ordenar alfabéticamente?", value=False)
 
-# Construir consulta
+# ——————————————————————————————————————————————————————————
+# Construir consulta SQL (incluyendo imagen_url, que puede ser NULL)
+# ——————————————————————————————————————————————————————————
 sql = """
-    SELECT p.id, p.titulo, p.descripcion, p.tipo, p.precio, p.estado,
-           c.descripcion AS categoria, p.venta_alquiler, p.id_vendedor, p.link_acceso
+    SELECT 
+      p.id,
+      p.titulo,
+      p.descripcion,
+      p.tipo,
+      p.precio,
+      p.estado,
+      c.descripcion AS categoria,
+      p.venta_alquiler,
+      p.id_vendedor,
+      p.link_acceso,
+      p.imagen_url
     FROM publicaciones p
     JOIN productos pr ON p.id_producto = pr.id
     JOIN categoria c  ON pr.id_categoria = c.id
@@ -73,29 +99,42 @@ elif precio_orden == "Mayor a Menor":
 else:
     sql += " ORDER BY p.id DESC"
 
+# ——————————————————————————————————————————————————————————
+# Ejecutar consulta y obtener DataFrame
+# ——————————————————————————————————————————————————————————
 df = execute_query(sql, is_select=True)
 
 if df.empty:
     st.info("No hay publicaciones disponibles.")
     st.stop()
 
+# ——————————————————————————————————————————————————————————
+# Mostrar cada publicación (imagen opcional)
+# ——————————————————————————————————————————————————————————
 for _, pub in df.iterrows():
     with st.expander(f"{pub['titulo']} — ${pub['precio']} ({pub['venta_alquiler']})"):
+        # 1) Mostrar imagen si existe (imagen_url no es NULL ni cadena vacía)
+        if pub.get("imagen_url"):
+            st.image(pub["imagen_url"], width=300)
+            st.write("")  # Espacio debajo de la imagen
+
+        # 2) Mostrar el resto de la información
         st.write(f"**Descripción:** {pub['descripcion']}")
         st.write(f"**Categoría:** {pub['categoria']}")
         st.write(f"**Estado:** {pub['estado']}")
 
+        # 3) Dependiendo del vendedor, o abrimos link, o mostramos botón de comprar/alquilar
         if pub["id_vendedor"] in [1, 2, 3]:
             if st.button(f"🔗 Visitar link (ID {pub['id']})", key=f"link_{pub['id']}"):
                 webbrowser.open_new_tab(pub["link_acceso"])
         else:
             accion = "Comprar" if pub["venta_alquiler"].lower() == "venta" else "Alquilar"
             if st.button(f"{accion} ID {pub['id']}", key=f"btn_{pub['id']}"):
-                st.session_state['transaccion'] = {
-                    'pub_id': pub['id'],
-                    'tipo':   pub['venta_alquiler']
+                st.session_state["transaccion"] = {
+                    "pub_id": pub["id"],
+                    "tipo":   pub["venta_alquiler"]
                 }
-                if pub['venta_alquiler'].lower() == 'venta':
-                    st.switch_page('pages/_confirmar_compra.py')
+                if pub["venta_alquiler"].lower() == "venta":
+                    st.switch_page("pages/_confirmar_compra.py")
                 else:
-                    st.switch_page('pages/_confirmar_alquiler.py')
+                    st.switch_page("pages/_confirmar_alquiler.py")

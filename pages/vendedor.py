@@ -1,7 +1,18 @@
 import streamlit as st
-from functions import execute_query, get_productos, add_publicacion
-import datetime
+from datetime import date
 
+from functions import (
+    execute_query,
+    get_productos,
+    add_publicacion,
+    init_supabase_client,
+    update_publicacion_activo,
+    delete_publicacion
+)
+
+# ——————————————————————————————————————————————————————————
+# Estilos: ocultar menú lateral, navegación, etc.
+# ——————————————————————————————————————————————————————————
 st.markdown("""
     <style>
       /* Oculta el menú de hamburguesa */
@@ -13,63 +24,121 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# -----------------------------
+# ——————————————————————————————————————————————————————————
 # Sidebar – Cerrar sesión
-# -----------------------------
+# ——————————————————————————————————————————————————————————
 with st.sidebar:
     if st.button("🚪 Cerrar sesión"):
         st.session_state.clear()
-        st.switch_page('Inicio.py')
+        st.switch_page("Inicio.py")
 
-
+# ——————————————————————————————————————————————————————————
 # Verificar sesión y rol
-if not st.session_state.get('logged_in'):
+# ——————————————————————————————————————————————————————————
+if not st.session_state.get("logged_in"):
     st.error("❌ Debes iniciar sesión primero.")
     st.stop()
-if st.session_state['role'] != 'Vendedor':
+if st.session_state.get("role") != "Vendedor":
     st.error("❌ Acceso solo para vendedores.")
     st.stop()
 
 st.title("Panel del Vendedor")
 
-# 1. Crear Publicación
+# ——————————————————————————————————————————————————————————
+# 1. Crear Publicación (con imagen)
+# ——————————————————————————————————————————————————————————
 st.header("🌐 Publicar nuevo producto")
+
 productos = get_productos()
 opciones = {p["nombre"]: p["id"] for p in productos}
 
 with st.form("publicar_form"):
-    titulo         = st.text_input("Título de la publicación")
-    descripcion    = st.text_area("Descripción")
-    tipo           = st.text_input("Tipo de producto (opcional)")
-    estado         = st.selectbox("Estado del producto", ["Nuevo", "Usado"])
-    precio         = st.number_input("Precio", min_value=0.0, step=0.01)
-    link           = st.text_input("Link de acceso (opcional)")
-    venta_alquiler = st.selectbox("¿Es para venta o alquiler?", ["Venta", "Alquiler"])
-    producto_nombre= st.selectbox("Seleccionar producto", list(opciones.keys()))
+    titulo          = st.text_input("Título de la publicación")
+    descripcion     = st.text_area("Descripción")
+    tipo            = st.text_input("Tipo de producto (opcional)")
+    estado          = st.selectbox("Estado del producto", ["Nuevo", "Usado"])
+    precio          = st.number_input("Precio", min_value=0.0, step=0.01)
+    link            = st.text_input("Link de acceso (opcional)")
+    venta_alquiler  = st.selectbox("¿Es para venta o alquiler?", ["Venta", "Alquiler"])
+    producto_nombre = st.selectbox("Seleccionar producto", list(opciones.keys()))
+
+    uploaded_file = st.file_uploader(
+        "📷 Subí una foto (JPEG/PNG)", type=["jpg", "jpeg", "png"]
+    )
 
     if st.form_submit_button("Publicar"):
         if not titulo or not descripcion:
-            st.error("Completa todos los campos obligatorios.")
+            st.error("❌ Completa título y descripción.")
+        elif uploaded_file is None:
+            st.error("❌ Debes subir una imagen (JPEG/PNG).")
         else:
-            id_producto    = opciones[producto_nombre]
-            id_vendedor    = st.session_state["user_id"]
-            fecha_creacion = datetime.date.today()
+            file_bytes = uploaded_file.read()
 
-            success = add_publicacion(
-                id_producto, id_vendedor, titulo, descripcion,
-                tipo, estado, precio, fecha_creacion,
-                link, venta_alquiler
-            )
-            if success:
-                st.success("Publicación creada correctamente.")
+            supabase = init_supabase_client()
+            if not supabase:
+                st.error("❌ No se pudo inicializar Supabase. Revisa .env")
             else:
-                st.error("Error al crear la publicación.")
+                import time as _time
+                extension = uploaded_file.name.split(".")[-1]
+                timestamp = int(_time.time())
+                file_name = f"publicacion_{st.session_state['user_id']}_{timestamp}.{extension}"
 
-# 2. Ver Publicaciones Propias
+                try:
+                    bucket = supabase.storage.from_("bucketimagenespublicaciones")
+                except Exception as e:
+                    st.error(f"❌ No se pudo acceder al bucket: {e}")
+                    st.stop()
+
+                try:
+                    bucket.upload(
+                        file_name,
+                        file_bytes,
+                        {"cacheControl": "3600", "upsert": False}
+                    )
+                except Exception as e:
+                    st.error(f"❌ Error al subir la imagen: {e}")
+                    st.stop()
+
+                try:
+                    imagen_url = bucket.get_public_url(file_name)
+                except Exception as e:
+                    st.error(f"❌ No se pudo obtener la URL pública de la imagen: {e}")
+                    imagen_url = None
+
+                if not imagen_url:
+                    st.error("❌ No se obtuvo ninguna URL de la imagen, abortando creación.")
+                else:
+                    id_producto    = opciones[producto_nombre]
+                    id_vendedor    = st.session_state["user_id"]
+                    fecha_creacion = date.today()
+
+                    success = add_publicacion(
+                        id_producto, id_vendedor, titulo, descripcion,
+                        tipo, estado, precio, fecha_creacion,
+                        link, venta_alquiler, imagen_url
+                    )
+
+                    if success:
+                        st.success("✅ Publicación creada correctamente con imagen.")
+                    else:
+                        st.error("❌ Hubo un error al insertar la publicación en la base de datos.")
+
+# ——————————————————————————————————————————————————————————
+# 2. Ver “Mis publicaciones” con botones para borrar y activar/desactivar
+# ——————————————————————————————————————————————————————————
 st.header("📄 Mis publicaciones")
 id_vendedor = st.session_state["user_id"]
+
 sql_pub = f"""
-    SELECT p.titulo, p.descripcion, p.precio, p.estado, p.venta_alquiler, p.activoinactivo
+    SELECT 
+      p.id,
+      p.titulo,
+      p.descripcion,
+      p.precio,
+      p.estado,
+      p.venta_alquiler,
+      p.activoinactivo,
+      p.imagen_url
     FROM publicaciones p
     WHERE p.id_vendedor = {id_vendedor}
     ORDER BY p.id DESC
@@ -82,65 +151,80 @@ else:
     for _, row in df_pub.iterrows():
         estado_pub = "Activa" if row["activoinactivo"] == 1 else "Inactiva"
         with st.expander(f"{row['titulo']} — ${row['precio']} ({row['venta_alquiler']})"):
+            if row.get("imagen_url"):
+                st.image(row["imagen_url"], width=300)
+                st.write("")  # Espacio debajo de la imagen
+
             st.write(f"**Descripción:** {row['descripcion']}")
             st.write(f"**Estado:** {row['estado']}")
             st.write(f"**Publicación:** {estado_pub}")
 
-# 3. Ver Confirmaciones Recibidas
-st.header("🛎️ Confirmaciones de compra/alquiler")
-sql_conf = f"""
-    SELECT p.titulo,
-           c.fecha_confirmacion,
-           c.metodo_de_pago,
-           c.vigencia,
-           co.nombre_y_apellido AS comprador
-    FROM confirmaciones c
-    JOIN publicaciones p   ON p.id = c.id_publicacion
-    JOIN compradores co     ON co.id = c.id_comprador
-    WHERE p.id_vendedor = {id_vendedor}
-    ORDER BY c.fecha_confirmacion DESC
-"""
-df_conf = execute_query(sql_conf, is_select=True)
+            col1, col2 = st.columns([1, 1])
 
-if df_conf.empty:
-    st.info("Todavía no tienes confirmaciones.")
-else:
-    for _, row in df_conf.iterrows():
-        with st.expander(f"{row['titulo']} ({row['fecha_confirmacion']})"):
-            st.write(f"**Comprador:** {row['comprador']}")
-            st.write(f"**Método de pago:** {row['metodo_de_pago']}")
-            vigencia = row["vigencia"]
-            vigencia_str = f"{vigencia} días" if vigencia is not None else "permanente"
-            st.write(f"**Vigencia:** {vigencia_str}")
+            # —————————— Botón para Activar/Desactivar ——————————
+            with col1:
+                btn_label = "Desactivar" if row["activoinactivo"] == 1 else "Activar"
+                key_act = f"btn_estado_{row['id']}"
+                if st.button(f"{btn_label} publicación ID {row['id']}", key=key_act):
+                    nuevo_estado = 0 if row["activoinactivo"] == 1 else 1
+                    updated = update_publicacion_activo(row["id"], nuevo_estado)
+                    if updated:
+                        st.success(
+                            f"✅ Publicación {'desactivada' if nuevo_estado == 0 else 'activada'} correctamente."
+                        )
+                    else:
+                        st.error("❌ Error al actualizar el estado.")
+                    # Al pulsar este botón, Streamlit vuelve a ejecutar todo el script,
+                    # así que df_pub se refresca automáticamente con el nuevo valor.
 
-# 4. Ver Todas las Publicaciones (sin botones) con filtros y ordenamientos
+            # —————————— Botón para Borrar ——————————
+            with col2:
+                key_del = f"btn_borrar_{row['id']}"
+                if st.button(f"🗑️ Borrar publicación ID {row['id']}", key=key_del):
+                    borrado, mensaje = delete_publicacion(row["id"])
+                    if borrado:
+                        st.success(mensaje)
+                    else:
+                        st.error(mensaje)
+                    # Al pulsar este botón, Streamlit vuelve a ejecutar todo el script,
+                    # así que df_pub se refresca automáticamente, eliminando (o no) la fila.
+
+# ——————————————————————————————————————————————————————————
+# 3. Ver Todas las Publicaciones Disponibles (sin botones de compra/alquiler)
+# ——————————————————————————————————————————————————————————
 st.header("📅 Ver publicaciones disponibles")
-# Filtros
+
 categorias     = execute_query("SELECT id, descripcion FROM categoria", is_select=True)
 categoria_dict = dict(zip(categorias["descripcion"], categorias["id"]))
 categoria_sel  = st.selectbox("Filtrar por categoría", ["Todas"] + list(categoria_dict.keys()))
 estado_sel     = st.selectbox("Filtrar por estado", ["Todos", "Nuevo", "Usado"])
 tipo_sel       = st.selectbox("Filtrar por tipo", ["Todos", "Venta", "Alquiler"])
-# Ordenamientos
-precio_orden = st.selectbox("Filtrar por precio", ["Ninguno", "Menor a Mayor", "Mayor a Menor"], index=0)
-alfabetico   = st.checkbox("Ordenar alfabéticamente?", value=False)
+precio_orden   = st.selectbox("Filtrar por precio", ["Ninguno", "Menor a Mayor", "Mayor a Menor"], index=0)
+alfabetico     = st.checkbox("Ordenar alfabéticamente?", value=False)
 
 sql_all = """
-    SELECT p.id, p.titulo, p.descripcion, p.tipo, p.precio, p.estado,
-           c.descripcion AS categoria, p.venta_alquiler
+    SELECT 
+      p.id,
+      p.titulo,
+      p.descripcion,
+      p.tipo,
+      p.precio,
+      p.estado,
+      c.descripcion AS categoria,
+      p.venta_alquiler,
+      p.imagen_url
     FROM publicaciones p
     JOIN productos pr ON p.id_producto = pr.id
     JOIN categoria c  ON pr.id_categoria = c.id
     WHERE p.activoinactivo = 1
 """
-# Aplicar filtros
 if categoria_sel != "Todas":
     sql_all += f" AND c.id = {categoria_dict[categoria_sel]}"
 if estado_sel != "Todos":
     sql_all += f" AND LOWER(p.estado) = LOWER('{estado_sel}')"
 if tipo_sel != "Todos":
     sql_all += f" AND LOWER(p.venta_alquiler) = LOWER('{tipo_sel}')"
-# Aplicar ordenamientos
+
 if alfabetico:
     sql_all += " ORDER BY p.titulo ASC"
 elif precio_orden == "Menor a Mayor":
@@ -157,7 +241,10 @@ if df_all.empty:
 else:
     for _, pub in df_all.iterrows():
         with st.expander(f"{pub['titulo']} — ${pub['precio']} ({pub['venta_alquiler']})"):
-            st.write(f"**Descripción:** {pub['descripcion']}")
-            st.write(f"**Categoría:** {pub['categoria']}")
-            st.write(f"**Estado:** {pub['estado']}")
+            if pub.get("imagen_url"):
+                st.image(pub["imagen_url"], width=300)
+                st.write("")
 
+            st.write(f"**Descripción:** {pub['descripcion']}")
+            st.write(f"**Estado:** {pub['estado']}")
+            st.write(f"**Categoría:** {pub['categoria']}")

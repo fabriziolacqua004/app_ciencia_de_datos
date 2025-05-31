@@ -3,9 +3,11 @@ import os
 from dotenv import load_dotenv
 import pandas as pd
 import streamlit as st
-
+from supabase import create_client, Client
+from typing import Tuple
 # Carga variables de entorno desde .env
 load_dotenv()
+
 
 def connect_to_supabase():
     host     = os.getenv("SUPABASE_DB_HOST")
@@ -28,10 +30,11 @@ def connect_to_supabase():
         st.error(f"❌ Error de conexión a la base de datos: {e}")
         return None
 
+
 def execute_query(query, params=None, conn=None, is_select=True):
     """
     Ejecuta una consulta SELECT (devuelve DataFrame)
-    o DML INSERT/UPDATE/DELETE (devuelve True/False).
+    o una consulta DML INSERT/UPDATE/DELETE (devuelve True/False).
     """
     close_conn = False
     try:
@@ -100,18 +103,43 @@ def add_comprador(nombre_y_apellido, ubicacion, telefono, mail, usuario, contras
     return execute_query(sql, params=params, is_select=False)
 
 
-def add_publicacion(id_producto, id_vendedor, titulo, descripcion, tipo,
-                    estado, precio, fecha_de_creacion, link_acceso, venta_alquiler,
-                    activoinactivo=1):  # valor por defecto a 1
+def add_publicacion(
+    id_producto,
+    id_vendedor,
+    titulo,
+    descripcion,
+    tipo,
+    estado,
+    precio,
+    fecha_de_creacion,
+    link_acceso,
+    venta_alquiler,
+    imagen_url,
+    activoinactivo=1
+):
+    """
+    Inserta una nueva publicación, ahora con imagen_url.
+    - imagen_url: string con la URL pública de la foto en Supabase Storage
+    """
     sql = """
         INSERT INTO public.publicaciones (
             id_producto, id_vendedor, titulo, descripcion, tipo, estado,
-            precio, fecha_de_creacion, link_acceso, venta_alquiler, activoinactivo
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            precio, fecha_de_creacion, link_acceso, venta_alquiler,
+            imagen_url, activoinactivo
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     params = (
-        id_producto, id_vendedor, titulo, descripcion, tipo,
-        estado, precio, fecha_de_creacion, link_acceso, venta_alquiler,
+        id_producto,
+        id_vendedor,
+        titulo,
+        descripcion,
+        tipo,
+        estado,
+        precio,
+        fecha_de_creacion,
+        link_acceso,
+        venta_alquiler,
+        imagen_url,
         activoinactivo
     )
     return execute_query(sql, params=params, is_select=False)
@@ -130,6 +158,24 @@ def update_publicacion_activo(id_publicacion: int, activo: int) -> bool:
        WHERE id = %s
     """
     return execute_query(sql, params=(activo, id_publicacion), is_select=False)
+
+
+
+def delete_publicacion(id_publicacion: int) -> Tuple[bool, str]:
+    # 1) Verificar confirmaciones
+    sql_check = """
+        SELECT COUNT(*) AS cnt
+        FROM public.confirmaciones
+        WHERE id_publicacion = %s
+    """
+    df_check = execute_query(sql_check, params=(id_publicacion,), is_select=True)
+    if int(df_check.loc[0, "cnt"]) > 0:
+        return False, "❌ No se puede borrar: hay confirmaciones relacionadas."
+    # 2) Borrar si no hay
+    sql_delete = "DELETE FROM public.publicaciones WHERE id = %s"
+    if execute_query(sql_delete, params=(id_publicacion,), is_select=False):
+        return True, "✅ Publicación borrada correctamente."
+    return False, "❌ Error al ejecutar el borrado."
 
 
 def clean_expired_rentals():
@@ -157,10 +203,12 @@ def clean_expired_rentals():
     return True
 
 
-def add_confirmacion(id_publicacion: int,
-                     id_comprador: int,
-                     metodo_pago: str,
-                     vigencia: int | None) -> bool:
+def add_confirmacion(
+    id_publicacion: int,
+    id_comprador: int,
+    metodo_pago: str,
+    vigencia: int | None
+) -> bool:
     """
     Inserta una confirmación con:
       - vigencia: número de días para alquiler, o None para venta permanente.
@@ -175,3 +223,27 @@ def add_confirmacion(id_publicacion: int,
         params=(id_publicacion, id_comprador, metodo_pago, vigencia),
         is_select=False
     )
+
+
+# ----------------------------------------------------
+# Configuración e inicialización del cliente Supabase
+# (solo se usa para upload/obtener URL de imagen)
+# ----------------------------------------------------
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+supabase: Client = None
+
+
+def init_supabase_client():
+    """
+    Inicializa la variable global 'supabase' llamando a create_client().
+    Si falta la URL o la KEY en .env, muestra error y devuelve None.
+    """
+    global supabase
+    if supabase is None:
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            st.error("❌ Falta configurar SUPABASE_URL o SUPABASE_ANON_KEY en .env")
+            return None
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    return supabase
