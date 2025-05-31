@@ -13,6 +13,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# -----------------------------
+# Sidebar – Cerrar sesión
+# -----------------------------
+with st.sidebar:
+    if st.button("🚪 Cerrar sesión"):
+        st.session_state.clear()
+        st.switch_page('Inicio.py')
+
 
 # Verificar sesión y rol
 if not st.session_state.get('logged_in'):
