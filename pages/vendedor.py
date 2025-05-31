@@ -248,3 +248,36 @@ else:
             st.write(f"**Descripción:** {pub['descripcion']}")
             st.write(f"**Estado:** {pub['estado']}")
             st.write(f"**Categoría:** {pub['categoria']}")
+# ——————————————————————————————————————————————————————————
+# 4. Ver confirmaciones de mis publicaciones
+# ——————————————————————————————————————————————————————————
+# ——————————————————————————————————————————————————————————
+# 4. Ver confirmaciones de mis publicaciones (vigencia “Permanente” si es NULL)
+# ——————————————————————————————————————————————————————————
+st.header("🔔 Confirmaciones recibidas")
+
+sql_conf = f"""
+    SELECT 
+      conf.metodo_de_pago,
+      conf.fecha_confirmacion,
+      CASE 
+        WHEN conf.vigencia IS NULL THEN 'Permanente'
+        ELSE conf.vigencia::TEXT
+      END AS vigencia,
+      cmp."nombre_y_apellido" AS comprador,
+      p.titulo AS publicacion
+    FROM public.confirmaciones conf
+    JOIN public.publicaciones p 
+      ON conf.id_publicacion = p.id
+    JOIN public.compradores cmp 
+      ON conf.id_comprador = cmp.id
+    WHERE p.id_vendedor = {id_vendedor}
+    ORDER BY conf.fecha_confirmacion DESC
+"""
+df_conf = execute_query(sql_conf, is_select=True)
+
+if df_conf.empty:
+    st.info("No hay confirmaciones para tus publicaciones.")
+else:
+    st.table(df_conf[["metodo_de_pago", "fecha_confirmacion", "vigencia", "comprador", "publicacion"]])
+
