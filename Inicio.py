@@ -14,6 +14,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+<<<<<<< HEAD
+=======
+# Función para fondo de pantalla
+>>>>>>> 33b94a5cf1fe663e953670562a2407a9d7e7a9f7
 def set_background():
     css = """
     <style>
@@ -52,7 +56,11 @@ def set_background():
     """
     st.markdown(css, unsafe_allow_html=True)
 
+<<<<<<< HEAD
 # Aplicar fondo al inicio
+=======
+# Aplicar fondo
+>>>>>>> 33b94a5cf1fe663e953670562a2407a9d7e7a9f7
 set_background()
 
 # Ahora el contenido de la app
