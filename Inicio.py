@@ -14,13 +14,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Función para fondo de pantalla
 def set_background():
     css = """
     <style>
-        /* Fondo general claro (como en vendedor.py) */
+        /* Fondo general color #AAD1D1 */
         .stApp {
-            background-color: #F4F4F4 !important;
+            background-color: #AAD1D1 !important;
         }
 
         /* Zona del formulario con fondo #51A3A3 */
@@ -53,11 +52,10 @@ def set_background():
     """
     st.markdown(css, unsafe_allow_html=True)
 
-# Aplicar fondo
 set_background()
 
-# Título y sistema de login/registro
-st.title("🦽 Marketplace Ortopédico")
+# Ahora el contenido de la app
+st.title("ORTOPEDIX")
 st.subheader("Bienvenido a la plataforma de compra y venta de productos ortopédicos.")
 
 action = st.radio("¿Qué deseas hacer?", ["Crear cuenta", "Iniciar sesión"])
@@ -85,7 +83,7 @@ if action == "Crear cuenta":
                 else:
                     st.error("❌ Error al crear la cuenta.")
             else:
-                st.error("⚠️ Por favor, completa todos los campos.")
+                st.error("⚠ Por favor, completa todos los campos.")
 
 else:
     role = st.radio("¿Inicias como vendedor o comprador?", ["Vendedor", "Comprador"])
@@ -114,4 +112,4 @@ else:
                 else:
                     st.error("❌ Usuario o contraseña incorrectos.")
             else:
-                st.error("⚠️ Por favor, completa ambos campos.")
+                st.error("⚠ Por favor, completa ambos campos.")
