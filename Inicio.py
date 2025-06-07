@@ -14,56 +14,49 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Función para fondo de pantalla
-def set_background(image_path):
-    with open(image_path, "rb") as f:
-        data = f.read()
-    encoded = base64.b64encode(data).decode()
-    css = f"""
+def set_background():
+    css = """
     <style>
-        .stApp {{
-            background-image: url("data:image/png;base64,{encoded}");
-            background-size: cover;
-            background-attachment: fixed;
-            background-position: center;
-        }}
-        .main > div {{
-            background-color: rgba(30, 30, 47, 0.88);
-            padding: 2rem;
-            border-radius: 15px;
-        }}
-        /* Inputs y botones */
-        .stTextInput>div>div>input,
-        .stTextArea>div>textarea {{
-            background-color: #2e2e3e;
-            color: white;
-            border-radius: 8px;
-            padding: 0.5em;
-        }}
-        .stRadio>div {{ color: #ddd; }}
-        .stButton>button {{
-            background-color: #4CAF50;
-            color: white;
-            border-radius: 8px;
-            padding: 0.5em 1em;
-            font-weight: bold;
-        }}
-        .stForm {{
-            background-color: #2b2b3c;
-            padding: 2em;
-            border-radius: 12px;
-            box-shadow: 0px 0px 15px #00000055;
-        }}
-        h1, h2, h3, h4, h5, h6, label {{ color: #f5f5f5; }}
+        /* Fondo general color #AAD1D1 */
+        .stApp {
+            background-color: #AAD1D1 !important;
+        }
+
+        /* Zona del formulario con fondo #51A3A3 */
+        div.stForm {
+            background-color: #51A3A3 !important;
+            padding: 2em !important;
+            border-radius: 12px !important;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        /* Texto oscuro en toda la app */
+        h1, h2, h3, h4, h5, h6,
+        label, .stRadio > div,
+        .stApp, .stApp * {
+            color: #11151C !important;
+        }
+
+        /* Texto dentro del formulario (también oscuro para coherencia) */
+        div.stForm, div.stForm * {
+            color: #11151C !important;
+        }
+
+        /* Inputs dentro del formulario */
+        div.stForm input,
+        div.stForm textarea {
+            background-color: white !important;
+            color: #11151C !important;
+        }
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
 
-# Aplicar fondo
-set_background("images/fondo.png")
+# Aplicar fondo al inicio
+set_background()
 
-# Título y sistema de login/registro
-st.title("🦽 Marketplace Ortopédico")
+# Ahora el contenido de la app
+st.title("ORTOPEDIX")
 st.subheader("Bienvenido a la plataforma de compra y venta de productos ortopédicos.")
 
 action = st.radio("¿Qué deseas hacer?", ["Crear cuenta", "Iniciar sesión"])

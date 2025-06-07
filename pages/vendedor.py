@@ -1,4 +1,5 @@
 import streamlit as st
+
 from functions import execute_query, get_productos, add_publicacion
 import datetime
 
@@ -12,6 +13,12 @@ st.markdown("""
       [data-testid="stSidebarNav"] {display: none !important;}
     </style>
 """, unsafe_allow_html=True)
+
+# Sidebar – Cerrar sesión
+with st.sidebar:
+    if st.button("🚪 Cerrar sesión"):
+        st.session_state.clear()
+        st.switch_page('Inicio.py')
 
 
 # Verificar sesión y rol

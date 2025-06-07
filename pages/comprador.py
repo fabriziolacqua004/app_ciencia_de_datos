@@ -1,4 +1,5 @@
 import streamlit as st
+
 from functions import execute_query, clean_expired_rentals
 from datetime import datetime
 import webbrowser
