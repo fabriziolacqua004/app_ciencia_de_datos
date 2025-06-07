@@ -17,9 +17,9 @@ st.markdown("""
 def set_background():
     css = """
     <style>
-        /* Fondo general color #AAD1D1 */
+        /* Fondo general claro (como en vendedor.py) */
         .stApp {
-            background-color: #AAD1D1 !important;
+            background-color: #F4F4F4 !important;
         }
 
         /* Zona del formulario con fondo #51A3A3 */
