@@ -1,6 +1,6 @@
 import streamlit as st
 from datetime import date
-
+import time
 from functions import (
     execute_query,
     get_productos,
@@ -120,6 +120,8 @@ with st.form("publicar_form"):
 
                     if success:
                         st.success("✅ Publicación creada correctamente con imagen.")
+                        time.sleep(1)
+                        st.switch_page("pages/vendedor.py")
                     else:
                         st.error("❌ Hubo un error al insertar la publicación en la base de datos.")
 
@@ -172,6 +174,8 @@ else:
                         st.success(
                             f"✅ Publicación {'desactivada' if nuevo_estado == 0 else 'activada'} correctamente."
                         )
+                        time.sleep(1)
+                        st.switch_page("pages/vendedor.py")
                     else:
                         st.error("❌ Error al actualizar el estado.")
                     # Al pulsar este botón, Streamlit vuelve a ejecutar todo el script,
@@ -184,6 +188,8 @@ else:
                     borrado, mensaje = delete_publicacion(row["id"])
                     if borrado:
                         st.success(mensaje)
+                        time.sleep(1)
+                        st.switch_page("pages/vendedor.py")
                     else:
                         st.error(mensaje)
                     # Al pulsar este botón, Streamlit vuelve a ejecutar todo el script,
