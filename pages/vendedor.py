@@ -45,6 +45,170 @@ if st.session_state.get("role") != "Vendedor":
 st.title("Panel del Vendedor")
 
 # ——————————————————————————————————————————————————————————
+
+
+# ——————————————————————————————————————————————————————————
+# 1. Ver “Mis publicaciones” con botones para borrar y activar/desactivar
+# ——————————————————————————————————————————————————————————
+st.header("📄 Mis publicaciones")
+id_vendedor = st.session_state["user_id"]
+
+sql_pub = f"""
+    SELECT 
+      p.id,
+      p.titulo,
+      p.descripcion,
+      p.precio,
+      p.estado,
+      p.venta_alquiler,
+      p.activoinactivo,
+      p.imagen_url
+    FROM publicaciones p
+    WHERE p.id_vendedor = {id_vendedor}
+    ORDER BY p.id DESC
+"""
+df_pub = execute_query(sql_pub, is_select=True)
+
+if df_pub.empty:
+    st.info("Aún no tienes publicaciones.")
+else:
+    for _, row in df_pub.iterrows():
+        estado_pub = "Activa" if row["activoinactivo"] == 1 else "Inactiva"
+        with st.expander(f"{row['titulo']} — ${row['precio']} ({row['venta_alquiler']})"):
+            if row.get("imagen_url"):
+                st.image(row["imagen_url"], width=300)
+                st.write("")  # Espacio debajo de la imagen
+
+            st.write(f"**Descripción:** {row['descripcion']}")
+            st.write(f"**Estado:** {row['estado']}")
+            st.write(f"**Publicación:** {estado_pub}")
+
+            col1, col2 = st.columns([1, 1])
+
+            # —————————— Botón para Activar/Desactivar ——————————
+            with col1:
+                btn_label = "Desactivar" if row["activoinactivo"] == 1 else "Activar"
+                key_act = f"btn_estado_{row['id']}"
+                if st.button(f"{btn_label} publicación ID {row['id']}", key=key_act):
+                    nuevo_estado = 0 if row["activoinactivo"] == 1 else 1
+                    updated = update_publicacion_activo(row["id"], nuevo_estado)
+                    if updated:
+                        st.success(
+                            f"✅ Publicación {'desactivada' if nuevo_estado == 0 else 'activada'} correctamente."
+                        )
+                        time.sleep(1)
+                        st.switch_page("pages/vendedor.py")
+                    else:
+                        st.error("❌ Error al actualizar el estado.")
+                    # Al pulsar este botón, Streamlit vuelve a ejecutar todo el script,
+                    # así que df_pub se refresca automáticamente con el nuevo valor.
+
+            # —————————— Botón para Borrar ——————————
+            with col2:
+                key_del = f"btn_borrar_{row['id']}"
+                if st.button(f"🗑️ Borrar publicación ID {row['id']}", key=key_del):
+                    borrado, mensaje = delete_publicacion(row["id"])
+                    if borrado:
+                        st.success(mensaje)
+                        time.sleep(1)
+                        st.switch_page("pages/vendedor.py")
+                    else:
+                        st.error(mensaje)
+                    # Al pulsar este botón, Streamlit vuelve a ejecutar todo el script,
+                    # así que df_pub se refresca automáticamente, eliminando (o no) la fila.
+
+# ——————————————————————————————————————————————————————————
+# 2. Ver Todas las Publicaciones Disponibles (sin botones de compra/alquiler)
+# ——————————————————————————————————————————————————————————
+st.header("📅 Ver publicaciones disponibles")
+
+categorias     = execute_query("SELECT id, descripcion FROM categoria", is_select=True)
+categoria_dict = dict(zip(categorias["descripcion"], categorias["id"]))
+categoria_sel  = st.selectbox("Filtrar por categoría", ["Todas"] + list(categoria_dict.keys()))
+estado_sel     = st.selectbox("Filtrar por estado", ["Todos", "Nuevo", "Usado"])
+tipo_sel       = st.selectbox("Filtrar por tipo", ["Todos", "Venta", "Alquiler"])
+precio_orden   = st.selectbox("Filtrar por precio", ["Ninguno", "Menor a Mayor", "Mayor a Menor"], index=0)
+alfabetico     = st.checkbox("Ordenar alfabéticamente?", value=False)
+
+sql_all = """
+    SELECT 
+      p.id,
+      p.titulo,
+      p.descripcion,
+      p.tipo,
+      p.precio,
+      p.estado,
+      c.descripcion AS categoria,
+      p.venta_alquiler,
+      p.imagen_url
+    FROM publicaciones p
+    JOIN productos pr ON p.id_producto = pr.id
+    JOIN categoria c  ON pr.id_categoria = c.id
+    WHERE p.activoinactivo = 1
+"""
+if categoria_sel != "Todas":
+    sql_all += f" AND c.id = {categoria_dict[categoria_sel]}"
+if estado_sel != "Todos":
+    sql_all += f" AND LOWER(p.estado) = LOWER('{estado_sel}')"
+if tipo_sel != "Todos":
+    sql_all += f" AND LOWER(p.venta_alquiler) = LOWER('{tipo_sel}')"
+
+if alfabetico:
+    sql_all += " ORDER BY p.titulo ASC"
+elif precio_orden == "Menor a Mayor":
+    sql_all += " ORDER BY p.precio ASC"
+elif precio_orden == "Mayor a Menor":
+    sql_all += " ORDER BY p.precio DESC"
+else:
+    sql_all += " ORDER BY p.id DESC"
+
+df_all = execute_query(sql_all, is_select=True)
+
+if df_all.empty:
+    st.info("No hay publicaciones disponibles.")
+else:
+    for _, pub in df_all.iterrows():
+        with st.expander(f"{pub['titulo']} — ${pub['precio']} ({pub['venta_alquiler']})"):
+            if pub.get("imagen_url"):
+                st.image(pub["imagen_url"], width=300)
+                st.write("")
+
+            st.write(f"**Descripción:** {pub['descripcion']}")
+            st.write(f"**Estado:** {pub['estado']}")
+            st.write(f"**Categoría:** {pub['categoria']}")
+# ——————————————————————————————————————————————————————————
+# 3. Ver confirmaciones de mis publicaciones
+# ——————————————————————————————————————————————————————————
+# ——————————————————————————————————————————————————————————
+# 4. Ver confirmaciones de mis publicaciones (vigencia “Permanente” si es NULL)
+# ——————————————————————————————————————————————————————————
+st.header("🔔 Confirmaciones recibidas")
+
+sql_conf = f"""
+    SELECT 
+      conf.metodo_de_pago,
+      conf.fecha_confirmacion,
+      CASE 
+        WHEN conf.vigencia IS NULL THEN 'Permanente'
+        ELSE conf.vigencia::TEXT
+      END AS vigencia,
+      cmp."nombre_y_apellido" AS comprador,
+      p.titulo AS publicacion
+    FROM public.confirmaciones conf
+    JOIN public.publicaciones p 
+      ON conf.id_publicacion = p.id
+    JOIN public.compradores cmp 
+      ON conf.id_comprador = cmp.id
+    WHERE p.id_vendedor = {id_vendedor}
+    ORDER BY conf.fecha_confirmacion DESC
+"""
+df_conf = execute_query(sql_conf, is_select=True)
+
+if df_conf.empty:
+    st.info("No hay confirmaciones para tus publicaciones.")
+else:
+    st.table(df_conf[["metodo_de_pago", "fecha_confirmacion", "vigencia", "comprador", "publicacion"]])
+
 # 1. Crear Publicación (con imagen)
 # ——————————————————————————————————————————————————————————
 st.header("🌐 Publicar nuevo producto")
@@ -124,166 +288,3 @@ with st.form("publicar_form"):
                         st.switch_page("pages/vendedor.py")
                     else:
                         st.error("❌ Hubo un error al insertar la publicación en la base de datos.")
-
-# ——————————————————————————————————————————————————————————
-# 2. Ver “Mis publicaciones” con botones para borrar y activar/desactivar
-# ——————————————————————————————————————————————————————————
-st.header("📄 Mis publicaciones")
-id_vendedor = st.session_state["user_id"]
-
-sql_pub = f"""
-    SELECT 
-      p.id,
-      p.titulo,
-      p.descripcion,
-      p.precio,
-      p.estado,
-      p.venta_alquiler,
-      p.activoinactivo,
-      p.imagen_url
-    FROM publicaciones p
-    WHERE p.id_vendedor = {id_vendedor}
-    ORDER BY p.id DESC
-"""
-df_pub = execute_query(sql_pub, is_select=True)
-
-if df_pub.empty:
-    st.info("Aún no tienes publicaciones.")
-else:
-    for _, row in df_pub.iterrows():
-        estado_pub = "Activa" if row["activoinactivo"] == 1 else "Inactiva"
-        with st.expander(f"{row['titulo']} — ${row['precio']} ({row['venta_alquiler']})"):
-            if row.get("imagen_url"):
-                st.image(row["imagen_url"], width=300)
-                st.write("")  # Espacio debajo de la imagen
-
-            st.write(f"**Descripción:** {row['descripcion']}")
-            st.write(f"**Estado:** {row['estado']}")
-            st.write(f"**Publicación:** {estado_pub}")
-
-            col1, col2 = st.columns([1, 1])
-
-            # —————————— Botón para Activar/Desactivar ——————————
-            with col1:
-                btn_label = "Desactivar" if row["activoinactivo"] == 1 else "Activar"
-                key_act = f"btn_estado_{row['id']}"
-                if st.button(f"{btn_label} publicación ID {row['id']}", key=key_act):
-                    nuevo_estado = 0 if row["activoinactivo"] == 1 else 1
-                    updated = update_publicacion_activo(row["id"], nuevo_estado)
-                    if updated:
-                        st.success(
-                            f"✅ Publicación {'desactivada' if nuevo_estado == 0 else 'activada'} correctamente."
-                        )
-                        time.sleep(1)
-                        st.switch_page("pages/vendedor.py")
-                    else:
-                        st.error("❌ Error al actualizar el estado.")
-                    # Al pulsar este botón, Streamlit vuelve a ejecutar todo el script,
-                    # así que df_pub se refresca automáticamente con el nuevo valor.
-
-            # —————————— Botón para Borrar ——————————
-            with col2:
-                key_del = f"btn_borrar_{row['id']}"
-                if st.button(f"🗑️ Borrar publicación ID {row['id']}", key=key_del):
-                    borrado, mensaje = delete_publicacion(row["id"])
-                    if borrado:
-                        st.success(mensaje)
-                        time.sleep(1)
-                        st.switch_page("pages/vendedor.py")
-                    else:
-                        st.error(mensaje)
-                    # Al pulsar este botón, Streamlit vuelve a ejecutar todo el script,
-                    # así que df_pub se refresca automáticamente, eliminando (o no) la fila.
-
-# ——————————————————————————————————————————————————————————
-# 3. Ver Todas las Publicaciones Disponibles (sin botones de compra/alquiler)
-# ——————————————————————————————————————————————————————————
-st.header("📅 Ver publicaciones disponibles")
-
-categorias     = execute_query("SELECT id, descripcion FROM categoria", is_select=True)
-categoria_dict = dict(zip(categorias["descripcion"], categorias["id"]))
-categoria_sel  = st.selectbox("Filtrar por categoría", ["Todas"] + list(categoria_dict.keys()))
-estado_sel     = st.selectbox("Filtrar por estado", ["Todos", "Nuevo", "Usado"])
-tipo_sel       = st.selectbox("Filtrar por tipo", ["Todos", "Venta", "Alquiler"])
-precio_orden   = st.selectbox("Filtrar por precio", ["Ninguno", "Menor a Mayor", "Mayor a Menor"], index=0)
-alfabetico     = st.checkbox("Ordenar alfabéticamente?", value=False)
-
-sql_all = """
-    SELECT 
-      p.id,
-      p.titulo,
-      p.descripcion,
-      p.tipo,
-      p.precio,
-      p.estado,
-      c.descripcion AS categoria,
-      p.venta_alquiler,
-      p.imagen_url
-    FROM publicaciones p
-    JOIN productos pr ON p.id_producto = pr.id
-    JOIN categoria c  ON pr.id_categoria = c.id
-    WHERE p.activoinactivo = 1
-"""
-if categoria_sel != "Todas":
-    sql_all += f" AND c.id = {categoria_dict[categoria_sel]}"
-if estado_sel != "Todos":
-    sql_all += f" AND LOWER(p.estado) = LOWER('{estado_sel}')"
-if tipo_sel != "Todos":
-    sql_all += f" AND LOWER(p.venta_alquiler) = LOWER('{tipo_sel}')"
-
-if alfabetico:
-    sql_all += " ORDER BY p.titulo ASC"
-elif precio_orden == "Menor a Mayor":
-    sql_all += " ORDER BY p.precio ASC"
-elif precio_orden == "Mayor a Menor":
-    sql_all += " ORDER BY p.precio DESC"
-else:
-    sql_all += " ORDER BY p.id DESC"
-
-df_all = execute_query(sql_all, is_select=True)
-
-if df_all.empty:
-    st.info("No hay publicaciones disponibles.")
-else:
-    for _, pub in df_all.iterrows():
-        with st.expander(f"{pub['titulo']} — ${pub['precio']} ({pub['venta_alquiler']})"):
-            if pub.get("imagen_url"):
-                st.image(pub["imagen_url"], width=300)
-                st.write("")
-
-            st.write(f"**Descripción:** {pub['descripcion']}")
-            st.write(f"**Estado:** {pub['estado']}")
-            st.write(f"**Categoría:** {pub['categoria']}")
-# ——————————————————————————————————————————————————————————
-# 4. Ver confirmaciones de mis publicaciones
-# ——————————————————————————————————————————————————————————
-# ——————————————————————————————————————————————————————————
-# 4. Ver confirmaciones de mis publicaciones (vigencia “Permanente” si es NULL)
-# ——————————————————————————————————————————————————————————
-st.header("🔔 Confirmaciones recibidas")
-
-sql_conf = f"""
-    SELECT 
-      conf.metodo_de_pago,
-      conf.fecha_confirmacion,
-      CASE 
-        WHEN conf.vigencia IS NULL THEN 'Permanente'
-        ELSE conf.vigencia::TEXT
-      END AS vigencia,
-      cmp."nombre_y_apellido" AS comprador,
-      p.titulo AS publicacion
-    FROM public.confirmaciones conf
-    JOIN public.publicaciones p 
-      ON conf.id_publicacion = p.id
-    JOIN public.compradores cmp 
-      ON conf.id_comprador = cmp.id
-    WHERE p.id_vendedor = {id_vendedor}
-    ORDER BY conf.fecha_confirmacion DESC
-"""
-df_conf = execute_query(sql_conf, is_select=True)
-
-if df_conf.empty:
-    st.info("No hay confirmaciones para tus publicaciones.")
-else:
-    st.table(df_conf[["metodo_de_pago", "fecha_confirmacion", "vigencia", "comprador", "publicacion"]])
-

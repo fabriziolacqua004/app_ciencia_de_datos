@@ -85,6 +85,6 @@ if st.button("Confirmar alquiler"):
         st.session_state.pop('bloqueado_alquiler', None)
         st.session_state.pop('inicio_timer', None)
         st.success(f"✅ Alquilado por {dias} días. Redirigiendo al catálogo...")
-        time.sleep(2)
+        time.sleep(15)
         st.switch_page('pages/comprador.py')
 
