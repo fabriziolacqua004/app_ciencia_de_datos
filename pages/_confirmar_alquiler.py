@@ -84,6 +84,20 @@ if st.button("Confirmar alquiler"):
         st.session_state.pop('transaccion', None)
         st.session_state.pop('bloqueado_alquiler', None)
         st.session_state.pop('inicio_timer', None)
+        # 3) Obtener datos del dueño
+        result = execute_query(
+            "SELECT id_vendedor FROM publicaciones WHERE id = %s",
+            params=(pub_id,), is_select=True
+        )
+        id_dueno = int(result.iloc[0]['id_vendedor'])
+        info = execute_query(
+            "SELECT nombre_y_apellido, numero_de_telefono FROM vendedores WHERE id = %s",
+            params=(id_dueno,), is_select=True
+        )
+        nombre_dueno   = info.at[0, 'nombre_y_apellido']
+        telefono_dueno = info.at[0, 'numero_de_telefono']
+        # 4) Mostrar mensaje de contacto
+        st.info(f"📞 Comunicate con **{nombre_dueno}** al **{telefono_dueno}** para coordinar la entrega.")
         st.success(f"✅ Alquilado por {dias} días. Redirigiendo al catálogo...")
         time.sleep(15)
         st.switch_page('pages/comprador.py')
