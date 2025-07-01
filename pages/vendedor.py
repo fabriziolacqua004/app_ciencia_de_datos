@@ -220,7 +220,7 @@ with st.form("publicar_form"):
                 imagen_url
             )
             if success:
-                st.success("✅ Publicación creada correctamente con imagen.")
+                st.success("✅ Publicación creada correctamente")
                 time.sleep(1)
                 st.switch_page("pages/vendedor.py")
             else:
